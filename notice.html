@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <script>
+    // Supabase 설정
+    const SUPABASE_URL = "https://dsmeemqhcbdnzaomazoo.supabase.co";
+    const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_cGW_2CG6VVw7pj4S9pesOA_RPMV0xHe";
+  </script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>공지사항</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
+</head>
+<body hidden>
+  <header class="site-header">
+    <a href="index.html" class="logo">
+      <img src="logo.svg" alt="">
+      <span>내 포트폴리오</span>
+    </a>
+    <nav class="site-nav">
+      <a href="index.html">홈</a>
+      <a href="notice.html">공지사항</a>
+      <a href="mypage.html">마이페이지</a>
+      <a href="#" id="nav-logout">로그아웃</a>
+    </nav>
+  </header>
+
+  <main>
+    <h1>공지사항</h1>
+  </main>
+
+  <script>
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+
+    // 로그인 안 되어 있으면 내용을 보여주지 않고 바로 로그인 화면으로 이동
+    supabaseClient.auth.getSession().then(({ data }) => {
+      if (!data.session) {
+        location.replace("login.html");
+        return;
+      }
+      document.body.hidden = false;
+    });
+
+    document.getElementById("nav-logout").addEventListener("click", async (event) => {
+      event.preventDefault();
+      await supabaseClient.auth.signOut();
+      location.href = "login.html";
+    });
+  </script>
+</body>
+</html>

@@ -21,6 +21,7 @@
     </a>
     <nav class="site-nav">
       <a href="index.html">홈</a>
+      <a href="notice.html">공지사항</a>
       <a href="mypage.html">마이페이지</a>
       <a href="#" id="nav-logout">로그아웃</a>
     </nav>
@@ -30,9 +31,18 @@
     <h1>마이페이지</h1>
 
     <section class="profile-card">
+      <p class="birthday-banner" id="birthday-banner" hidden>생일 축하합니다</p>
       <p class="profile-name" id="profile-name"></p>
-      <p class="profile-meta" id="profile-email"></p>
+      <p class="profile-bio" id="profile-bio" hidden></p>
+      <p class="profile-meta profile-email" id="profile-email"></p>
       <p class="profile-meta">가입일 <span id="profile-joined"></span></p>
+      <p class="profile-meta" id="profile-days"></p>
+      <p class="profile-meta" id="profile-last-login" hidden>마지막 로그인: <span id="profile-last-login-date"></span></p>
+      <label class="theme-row" for="dark-mode-switch">
+        다크 모드
+        <input type="checkbox" role="switch" class="switch" id="dark-mode-switch">
+      </label>
+      <p class="theme-status" id="theme-status" hidden></p>
       <button type="button" class="btn-secondary" id="logout-btn">로그아웃</button>
     </section>
   </main>
@@ -49,6 +59,63 @@
       return y + "-" + m + "-" + d;
     }
 
+    // 가입한 날짜부터 오늘까지 지난 일 수 (시각은 무시하고 달력 날짜로만 계산, 가입 당일 = 0)
+    function daysSince(isoString) {
+      const joined = new Date(isoString);
+      const today = new Date();
+      const joinedDay = Date.UTC(joined.getFullYear(), joined.getMonth(), joined.getDate());
+      const todayDay = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+      return Math.max(0, Math.round((todayDay - joinedDay) / 86400000));
+    }
+
+    // 생년월일("YYYY-MM-DD")의 월·일이 오늘(내 컴퓨터 시간 기준)과 같은지
+    function isBirthdayToday(birthdate) {
+      const match = /^\d{4}-(\d{2})-(\d{2})$/.exec(birthdate || "");
+      if (!match) return false;
+
+      let month = Number(match[1]);
+      let day = Number(match[2]);
+      const today = new Date();
+      const year = today.getFullYear();
+
+      // 2월 29일생은 윤년이 아닌 해에는 2월 28일에 축하
+      const isLeapYear = (year % 4 === 0 && year % 100 !== 0) || year % 400 === 0;
+      if (month === 2 && day === 29 && !isLeapYear) {
+        day = 28;
+      }
+
+      return today.getMonth() + 1 === month && today.getDate() === day;
+    }
+
+    // 다크모드 적용 (html 태그의 data-theme 값으로 style.css의 색이 바뀜)
+    const darkSwitch = document.getElementById("dark-mode-switch");
+    const themeStatus = document.getElementById("theme-status");
+
+    function applyDarkMode(isDark) {
+      document.documentElement.dataset.theme = isDark ? "dark" : "light";
+      darkSwitch.checked = isDark;
+    }
+
+    // 스위치를 바꾸면 바로 적용하고 user metadata에 저장
+    darkSwitch.addEventListener("change", async () => {
+      const isDark = darkSwitch.checked;
+      applyDarkMode(isDark);
+      themeStatus.hidden = true;
+      darkSwitch.disabled = true;
+
+      const { error } = await supabaseClient.auth.updateUser({
+        data: { dark_mode: isDark } // 기존 metadata(이름 등)는 그대로 두고 이 값만 바뀜
+      });
+
+      darkSwitch.disabled = false;
+      if (error) {
+        // 저장에 실패하면 원래 상태로 되돌리고 알려줌
+        applyDarkMode(!isDark);
+        themeStatus.textContent = "저장하지 못했어요: " + error.message;
+        themeStatus.hidden = false;
+      }
+    });
+
     async function logout(event) {
       event.preventDefault();
       await supabaseClient.auth.signOut();
@@ -63,9 +130,39 @@
       }
 
       const user = data.session.user;
-      document.getElementById("profile-name").textContent = user.user_metadata?.name || "이름 없음";
+      const meta = user.user_metadata || {};
+
+      // 저장된 다크모드 상태 적용 (화면을 보여주기 전에 적용해서 깜빡임 없음)
+      applyDarkMode(meta.dark_mode === true);
+
+      document.getElementById("profile-name").textContent = meta.name || "이름 없음";
+
+      // 한줄 소개: 입력했을 때만 표시
+      if (meta.bio) {
+        const bio = document.getElementById("profile-bio");
+        bio.textContent = meta.bio;
+        bio.hidden = false;
+      }
+
+      // 생일: 오늘의 월·일이 생년월일의 월·일과 같으면 축하 메시지
+      if (isBirthdayToday(meta.birthdate)) {
+        document.getElementById("birthday-banner").hidden = false;
+      }
+
+      // 좋아하는 색: 카드 테두리 색으로 (올바른 색상 코드일 때만)
+      if (/^#[0-9a-f]{6}$/i.test(meta.favorite_color || "")) {
+        document.querySelector(".profile-card").style.setProperty("--profile-color", meta.favorite_color);
+      }
+
       document.getElementById("profile-email").textContent = user.email;
       document.getElementById("profile-joined").textContent = formatDate(user.created_at);
+      document.getElementById("profile-days").textContent = "가입한 지 " + daysSince(user.created_at) + "일째";
+
+      // 마지막 로그인: 세션에 들어있는 last_sign_in_at 그대로 사용
+      if (user.last_sign_in_at) {
+        document.getElementById("profile-last-login-date").textContent = formatDate(user.last_sign_in_at);
+        document.getElementById("profile-last-login").hidden = false;
+      }
       document.body.hidden = false;
     });
 

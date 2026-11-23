@@ -20,7 +20,9 @@
       <span>내 포트폴리오</span>
     </a>
     <nav class="site-nav">
+      <span class="welcome" id="welcome" hidden></span>
       <a href="index.html">홈</a>
+      <a href="notice.html" id="notice-link" hidden>공지사항</a>
       <a href="mypage.html" id="mypage-link" hidden>마이페이지</a>
       <a href="login.html" id="auth-link">로그인</a>
     </nav>
@@ -38,6 +40,13 @@
     supabaseClient.auth.getSession().then(({ data }) => {
       if (!data.session) return;
 
+      // 가입할 때 저장한 이름으로 환영 문구 표시 (이름이 없는 예전 계정은 "회원")
+      const name = data.session.user.user_metadata?.name || "회원";
+      const welcome = document.getElementById("welcome");
+      welcome.textContent = name + "님 환영합니다";
+      welcome.hidden = false;
+
+      document.getElementById("notice-link").hidden = false;
       document.getElementById("mypage-link").hidden = false;
       authLink.textContent = "로그아웃";
       authLink.addEventListener("click", async (event) => {

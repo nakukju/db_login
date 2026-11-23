@@ -30,13 +30,26 @@
           <label for="name">이름</label>
           <input type="text" id="name">
         </div>
+        <div class="field" id="birthdate-field" hidden>
+          <label for="birthdate">생년월일</label>
+          <input type="date" id="birthdate" min="1900-01-01">
+        </div>
+        <div class="field" id="color-field" hidden>
+          <label for="favorite-color">좋아하는 색</label>
+          <input type="color" id="favorite-color" value="#1f2d5c">
+        </div>
+        <div class="field" id="bio-field" hidden>
+          <label for="bio">한줄 소개 <span class="optional">(선택)</span></label>
+          <input type="text" id="bio" maxlength="40" placeholder="40자 이내로 적어주세요">
+        </div>
         <div class="field">
           <label for="email">이메일</label>
           <input type="email" id="email" required>
         </div>
-        <div class="field">
+        <div class="field" id="password-field">
           <label for="password">비밀번호</label>
           <input type="password" id="password" required>
+          <a href="#" id="forgot-link" class="forgot-link">비밀번호를 잊으셨나요?</a>
         </div>
         <button type="submit" id="login-btn" class="btn-primary">로그인</button>
       </form>
@@ -70,6 +83,18 @@
     const toggleLink = document.getElementById("toggle-link");
     const nameField = document.getElementById("name-field");
     const nameInput = document.getElementById("name");
+    const colorField = document.getElementById("color-field");
+    const colorInput = document.getElementById("favorite-color");
+    const bioField = document.getElementById("bio-field");
+    const bioInput = document.getElementById("bio");
+    const birthdateField = document.getElementById("birthdate-field");
+    const birthdateInput = document.getElementById("birthdate");
+
+    // 생년월일은 오늘 이후 날짜를 고를 수 없게
+    const today = new Date();
+    birthdateInput.max = today.getFullYear() + "-" +
+      String(today.getMonth() + 1).padStart(2, "0") + "-" +
+      String(today.getDate()).padStart(2, "0");
 
     // Supabase 오류를 한국어 문구로 바꿈
     function toKoreanError(error) {
@@ -83,37 +108,108 @@
       return "실패했어요: " + error.message;
     }
 
-    // 안내 문구 표시 (type: "error" = 빨간 상자, "info" = 회색 글씨, 빈 문구면 숨김)
+    // 안내 문구 표시 (type: "error" = 빨간 상자, "success" = 초록 상자, "info" = 회색 글씨, 빈 문구면 숨김)
     function showMessage(text, type = "error") {
       result.textContent = text;
       result.className = "result result-" + type;
       result.hidden = !text;
     }
 
-    // 현재 화면: false = 로그인, true = 회원가입
-    let isSignUp = false;
+    const passwordField = document.getElementById("password-field");
+    const passwordInput = document.getElementById("password");
+    const forgotLink = document.getElementById("forgot-link");
+
+    // 현재 화면: "login" = 로그인, "signup" = 회원가입, "reset" = 비밀번호 재설정
+    let mode = "login";
+
+    function setMode(newMode) {
+      mode = newMode;
+      const isSignUp = mode === "signup";
+      const isReset = mode === "reset";
+
+      const titles = { login: "로그인", signup: "회원가입", reset: "비밀번호 재설정" };
+      const buttons = { login: "로그인", signup: "회원가입", reset: "재설정 링크 보내기" };
+      title.textContent = titles[mode];
+      button.textContent = buttons[mode];
+      document.title = titles[mode];
+
+      // 회원가입 전용 칸
+      nameField.hidden = !isSignUp;
+      birthdateField.hidden = !isSignUp;
+      colorField.hidden = !isSignUp;
+      bioField.hidden = !isSignUp;
+
+      // 재설정 화면에서는 비밀번호 칸을 숨기고 필수 해제 (숨긴 필수 칸이 있으면 제출이 막힘)
+      passwordField.hidden = isReset;
+      passwordInput.required = !isReset;
+      forgotLink.hidden = mode !== "login";
+
+      if (isSignUp) {
+        toggleText.textContent = "이미 계정이 있나요?";
+        toggleLink.textContent = "로그인";
+      } else if (isReset) {
+        toggleText.textContent = "비밀번호가 기억났나요?";
+        toggleLink.textContent = "로그인";
+      } else {
+        toggleText.textContent = "계정이 없나요?";
+        toggleLink.textContent = "회원가입";
+      }
+
+      showMessage("");
+    }
 
     toggleLink.addEventListener("click", (event) => {
       event.preventDefault();
-      isSignUp = !isSignUp;
-
-      const label = isSignUp ? "회원가입" : "로그인";
-      title.textContent = label;
-      button.textContent = label;
-      document.title = label;
-      toggleText.textContent = isSignUp ? "이미 계정이 있나요?" : "계정이 없나요?";
-      toggleLink.textContent = isSignUp ? "로그인" : "회원가입";
-      nameField.hidden = !isSignUp;
-      showMessage("");
+      setMode(mode === "login" ? "signup" : "login");
     });
+
+    forgotLink.addEventListener("click", (event) => {
+      event.preventDefault();
+      setMode("reset");
+    });
+
+    // 비밀번호 재설정 이메일 보내기
+    async function sendResetEmail() {
+      showMessage("보내는 중...", "info");
+      button.disabled = true;
+
+      try {
+        // 메일의 링크를 누르면 돌아올 주소 (지금 페이지와 같은 폴더의 new-password.html)
+        const redirectTo = new URL("new-password.html", location.href).href;
+        const { error } = await supabaseClient.auth.resetPasswordForEmail(
+          document.getElementById("email").value,
+          { redirectTo: redirectTo }
+        );
+        if (error) {
+          showMessage(toKoreanError(error));
+        } else {
+          showMessage("이메일을 확인해주세요", "success");
+        }
+      } catch (error) {
+        showMessage(toKoreanError(error));
+      } finally {
+        button.disabled = false;
+      }
+    }
 
     form.addEventListener("submit", async (event) => {
       event.preventDefault();
 
+      if (mode === "reset") {
+        sendResetEmail();
+        return;
+      }
+
+      const isSignUp = mode === "signup";
       const name = nameInput.value.trim();
       if (isSignUp && !name) {
         showMessage("이름을 입력해주세요");
         nameInput.focus();
+        return;
+      }
+      if (isSignUp && !birthdateInput.value) {
+        showMessage("생년월일을 선택해주세요");
+        birthdateInput.focus();
         return;
       }
 
@@ -129,7 +225,15 @@
         const { data, error } = isSignUp
           ? await supabaseClient.auth.signUp({
               ...credentials,
-              options: { data: { name: name } } // user metadata에 이름 저장
+              // user metadata에 이름, 생년월일, 좋아하는 색, 한줄 소개(선택) 저장
+              options: {
+                data: {
+                  name: name,
+                  birthdate: birthdateInput.value, // "YYYY-MM-DD"
+                  favorite_color: colorInput.value,
+                  bio: bioInput.value.trim().slice(0, 40)
+                }
+              }
             })
           : await supabaseClient.auth.signInWithPassword(credentials);
 
