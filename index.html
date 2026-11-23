@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <script>
+    // Supabase 설정
+    const SUPABASE_URL = "https://dsmeemqhcbdnzaomazoo.supabase.co";
+    const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_cGW_2CG6VVw7pj4S9pesOA_RPMV0xHe";
+  </script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>내 포트폴리오</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
+</head>
+<body>
+  <header>
+    <h1>내 포트폴리오</h1>
+    <nav>
+      <a href="index.html">홈</a>
+      <a href="login.html" id="auth-link">로그인</a>
+    </nav>
+  </header>
+
+  <script>
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+    const authLink = document.getElementById("auth-link");
+
+    // 로그인 상태면 "로그인" 링크를 "로그아웃"으로 바꿈
+    supabaseClient.auth.getSession().then(({ data }) => {
+      if (!data.session) return;
+
+      authLink.textContent = "로그아웃";
+      authLink.addEventListener("click", async (event) => {
+        event.preventDefault();
+        await supabaseClient.auth.signOut();
+        location.href = "login.html";
+      });
+    });
+  </script>
+</body>
+</html>

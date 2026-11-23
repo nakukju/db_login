@@ -1,0 +1,133 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <script>
+    // Supabase 설정
+    const SUPABASE_URL = "https://dsmeemqhcbdnzaomazoo.supabase.co";
+    const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_cGW_2CG6VVw7pj4S9pesOA_RPMV0xHe";
+  </script>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>로그인</title>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
+</head>
+<body hidden>
+  <h1 id="title">로그인</h1>
+
+  <form id="login-form">
+    <p id="name-field" hidden>
+      <label for="name">이름</label><br>
+      <input type="text" id="name">
+    </p>
+    <p>
+      <label for="email">이메일</label><br>
+      <input type="email" id="email" required>
+    </p>
+    <p>
+      <label for="password">비밀번호</label><br>
+      <input type="password" id="password" required>
+    </p>
+    <button type="submit" id="login-btn">로그인</button>
+  </form>
+
+  <p id="result"></p>
+
+  <p>
+    <span id="toggle-text">계정이 없나요?</span>
+    <a href="#" id="toggle-link">회원가입</a>
+  </p>
+
+  <script>
+    const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
+
+    // 이미 로그인되어 있으면 화면을 보여주지 않고 바로 홈으로 이동
+    supabaseClient.auth.getSession().then(({ data }) => {
+      if (data.session) {
+        location.replace("index.html");
+      } else {
+        document.body.hidden = false;
+      }
+    });
+
+    const form = document.getElementById("login-form");
+    const title = document.getElementById("title");
+    const button = document.getElementById("login-btn");
+    const result = document.getElementById("result");
+    const toggleText = document.getElementById("toggle-text");
+    const toggleLink = document.getElementById("toggle-link");
+    const nameField = document.getElementById("name-field");
+    const nameInput = document.getElementById("name");
+
+    // Supabase 오류를 한국어 문구로 바꿈
+    function toKoreanError(error) {
+      const code = error.code;
+      if (code === "user_already_exists" || code === "email_exists") {
+        return "이미 가입된 이메일이에요";
+      }
+      if (code === "invalid_credentials") {
+        return "이메일이나 비밀번호가 맞지 않아요";
+      }
+      return "실패했어요: " + error.message;
+    }
+
+    // 현재 화면: false = 로그인, true = 회원가입
+    let isSignUp = false;
+
+    toggleLink.addEventListener("click", (event) => {
+      event.preventDefault();
+      isSignUp = !isSignUp;
+
+      const label = isSignUp ? "회원가입" : "로그인";
+      title.textContent = label;
+      button.textContent = label;
+      document.title = label;
+      toggleText.textContent = isSignUp ? "이미 계정이 있나요?" : "계정이 없나요?";
+      toggleLink.textContent = isSignUp ? "로그인" : "회원가입";
+      nameField.hidden = !isSignUp;
+      result.textContent = "";
+    });
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault();
+
+      const name = nameInput.value.trim();
+      if (isSignUp && !name) {
+        result.textContent = "이름을 입력해주세요";
+        nameInput.focus();
+        return;
+      }
+
+      result.textContent = isSignUp ? "가입 중..." : "로그인 중...";
+      button.disabled = true;
+
+      const credentials = {
+        email: document.getElementById("email").value,
+        password: document.getElementById("password").value
+      };
+
+      try {
+        const { data, error } = isSignUp
+          ? await supabaseClient.auth.signUp({
+              ...credentials,
+              options: { data: { name: name } } // user metadata에 이름 저장
+            })
+          : await supabaseClient.auth.signInWithPassword(credentials);
+
+        if (error) {
+          result.textContent = toKoreanError(error);
+        } else if (data.session) {
+          location.href = "index.html";
+          return;
+        } else {
+          // 이메일 인증이 켜져 있으면 가입 직후에는 로그인 상태가 아님
+          result.textContent = "가입 성공. 이메일 인증 후 로그인해주세요.";
+        }
+      } catch (error) {
+        result.textContent = toKoreanError(error);
+      } finally {
+        button.disabled = false;
+      }
+    });
+  </script>
+</body>
+</html>
