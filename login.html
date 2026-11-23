@@ -9,33 +9,46 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>로그인</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+  <link rel="stylesheet" href="style.css">
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
 </head>
-<body hidden>
-  <h1 id="title">로그인</h1>
+<body class="auth-page" hidden>
+  <header class="site-header">
+    <a href="index.html" class="logo">
+      <img src="logo.svg" alt="">
+      <span>내 포트폴리오</span>
+    </a>
+  </header>
 
-  <form id="login-form">
-    <p id="name-field" hidden>
-      <label for="name">이름</label><br>
-      <input type="text" id="name">
-    </p>
-    <p>
-      <label for="email">이메일</label><br>
-      <input type="email" id="email" required>
-    </p>
-    <p>
-      <label for="password">비밀번호</label><br>
-      <input type="password" id="password" required>
-    </p>
-    <button type="submit" id="login-btn">로그인</button>
-  </form>
+  <main>
+    <div class="auth-card">
+      <h1 id="title">로그인</h1>
 
-  <p id="result"></p>
+      <form id="login-form">
+        <div class="field" id="name-field" hidden>
+          <label for="name">이름</label>
+          <input type="text" id="name">
+        </div>
+        <div class="field">
+          <label for="email">이메일</label>
+          <input type="email" id="email" required>
+        </div>
+        <div class="field">
+          <label for="password">비밀번호</label>
+          <input type="password" id="password" required>
+        </div>
+        <button type="submit" id="login-btn" class="btn-primary">로그인</button>
+      </form>
 
-  <p>
-    <span id="toggle-text">계정이 없나요?</span>
-    <a href="#" id="toggle-link">회원가입</a>
-  </p>
+      <p id="result" class="result" role="alert" hidden></p>
+
+      <p class="toggle">
+        <span id="toggle-text">계정이 없나요?</span>
+        <a href="#" id="toggle-link">회원가입</a>
+      </p>
+    </div>
+  </main>
 
   <script>
     const supabaseClient = supabase.createClient(SUPABASE_URL, SUPABASE_PUBLISHABLE_KEY);
@@ -70,6 +83,13 @@
       return "실패했어요: " + error.message;
     }
 
+    // 안내 문구 표시 (type: "error" = 빨간 상자, "info" = 회색 글씨, 빈 문구면 숨김)
+    function showMessage(text, type = "error") {
+      result.textContent = text;
+      result.className = "result result-" + type;
+      result.hidden = !text;
+    }
+
     // 현재 화면: false = 로그인, true = 회원가입
     let isSignUp = false;
 
@@ -84,7 +104,7 @@
       toggleText.textContent = isSignUp ? "이미 계정이 있나요?" : "계정이 없나요?";
       toggleLink.textContent = isSignUp ? "로그인" : "회원가입";
       nameField.hidden = !isSignUp;
-      result.textContent = "";
+      showMessage("");
     });
 
     form.addEventListener("submit", async (event) => {
@@ -92,12 +112,12 @@
 
       const name = nameInput.value.trim();
       if (isSignUp && !name) {
-        result.textContent = "이름을 입력해주세요";
+        showMessage("이름을 입력해주세요");
         nameInput.focus();
         return;
       }
 
-      result.textContent = isSignUp ? "가입 중..." : "로그인 중...";
+      showMessage(isSignUp ? "가입 중..." : "로그인 중...", "info");
       button.disabled = true;
 
       const credentials = {
@@ -114,16 +134,16 @@
           : await supabaseClient.auth.signInWithPassword(credentials);
 
         if (error) {
-          result.textContent = toKoreanError(error);
+          showMessage(toKoreanError(error));
         } else if (data.session) {
           location.href = "index.html";
           return;
         } else {
           // 이메일 인증이 켜져 있으면 가입 직후에는 로그인 상태가 아님
-          result.textContent = "가입 성공. 이메일 인증 후 로그인해주세요.";
+          showMessage("가입 성공. 이메일 인증 후 로그인해주세요.", "info");
         }
       } catch (error) {
-        result.textContent = toKoreanError(error);
+        showMessage(toKoreanError(error));
       } finally {
         button.disabled = false;
       }
